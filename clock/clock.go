@@ -2,20 +2,17 @@ package main
 
 import (
 	"flag"
-	"image/color"
-	"image/png"
-	"log"
-	"math/rand"
-	"os"
 	"image"
+	"image/color"
 	"image/draw"
 	"math"
+	"math/rand"
 	"time"
-	
+
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/math/fixed"
-	
+
 	rgbmatrix "simonwaldherr.de/go/rpirgbled"
 )
 
@@ -70,50 +67,43 @@ func smallRandomUint() uint8 {
 	return uint8(rand.Intn(16))
 }
 
-func genClock() {
-	// Bildgröße festlegen
-	img := image.NewRGBA(image.Rect(0, 0, 128, 128))
-	
-	// Hintergrundfarbe festlegen
+func genClock() *image.RGBA {
+	const size = 128
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+
 	draw.Draw(img, img.Bounds(), &image.Uniform{color.Black}, image.ZP, draw.Src)
-	
-	// Aktuelle Uhrzeit und Datum
+
 	now := time.Now()
-	hour, min, _ := now.Clock()
+	hour, min, sec := now.Clock()
 	dateStr := now.Format("02.01.2006")
-	timeStr := now.Format("15:04")
-	
-	// Zentrum der Uhr
-	centerX, centerY := 64, 60
-	
-	// Zeichnen Sie die Zeiger
-	drawHand(img, centerX, centerY, int(float64(hour)/12*360), 26, color.White) // Stundenzeiger
-	drawHand(img, centerX, centerY, int(float64(min)/60*360), 36, color.White)  // Minutenzeiger
-	
-	// Datum unten mittig hinzufügen
-	addLabel(img, centerX, 110, dateStr)
-	addLabel(img, centerX, 125, timeStr)
-	
-	// Datei speichern
-	f, err := os.Create("clock.png")
-	if err != nil {
-		panic(err)
+	timeStr := now.Format("15:04:05")
+
+	drawHand(img, size/2, size/2, int(float64(hour)/12*360), size/3, color.RGBA{200, 200, 200, 200}, 3)   // Stundenzeiger
+	drawHand(img, size/2, size/2, int(float64(min)/60*360), size/2-10, color.RGBA{200, 200, 200, 200}, 2) // Minutenzeiger
+	drawHand(img, size/2, size/2, int(float64(sec)/60*360), size/2-5, color.RGBA{200, 0, 0, 200}, 1)      // Sekundenzeiger, rot
+
+	for i := 0; i < 12; i++ {
+		angle := float64(i) / 12 * 2 * math.Pi
+		x1 := size/2 + int(math.Cos(angle)*(float64(size)/2-1))
+		y1 := size/2 + int(math.Sin(angle)*(float64(size)/2-1))
+		x2 := size/2 + int(math.Cos(angle)*(float64(size)/2-10))
+		y2 := size/2 + int(math.Sin(angle)*(float64(size)/2-10))
+		drawLine(img, x1, y1, x2, y2, color.RGBA{200, 200, 200, 200})
 	}
-	defer f.Close()
-	png.Encode(f, img)
+
+	addLabel(img, size/2, 100, dateStr)
+	addLabel(img, size/2, 115, timeStr)
+
+	return img
 }
 
-// drawHand zeichnet einen Zeiger der Uhr
-func drawHand(img *image.RGBA, x, y, angle, length int, col color.Color) {
-	// Umwandlung von Grad in Radiant
+func drawHand(img *image.RGBA, x, y, angle, length int, col color.Color, width int) {
 	rad := float64(angle-90) * math.Pi / 180
-	
-	// Berechnen Sie das Ende des Zeigers
+
 	endX := x + int(float64(length)*math.Cos(rad))
 	endY := y + int(float64(length)*math.Sin(rad))
-	
-	// Zeichnen Sie eine Linie vom Mittelpunkt zum berechneten Endpunkt
-	drawLine(img, x, y, endX, endY, col)
+
+	drawThickLine(img, x, y, endX, endY, col, width)
 }
 
 // drawLine zeichnet eine einfache Linie von (x1, y1) zu (x2, y2)
@@ -129,7 +119,7 @@ func drawLine(img *image.RGBA, x1, y1, x2, y2 int, col color.Color) {
 		sy = 1.0
 	}
 	err := dx - dy
-	
+
 	for {
 		img.Set(int(x1), int(y1), col)
 		if x1 == x2 && y1 == y2 {
@@ -144,6 +134,53 @@ func drawLine(img *image.RGBA, x1, y1, x2, y2 int, col color.Color) {
 			err += dx
 			y1 += int(sy)
 		}
+	}
+}
+
+func drawThickLine(img *image.RGBA, x1, y1, x2, y2 int, col color.Color, width int) {
+	if width <= 1 {
+		drawLine(img, x1, y1, x2, y2, col)
+		return
+	}
+
+	offsets := make([]image.Point, 0, width*width)
+	for dy := -width / 2; dy <= width/2; dy++ {
+		for dx := -width / 2; dx <= width/2; dx++ {
+			offsets = append(offsets, image.Point{dx, dy})
+		}
+	}
+
+	for _, offset := range offsets {
+		drawLine(img, x1+offset.X, y1+offset.Y, x2+offset.X, y2+offset.Y, col)
+	}
+}
+
+// drawCircle zeichnet einen Kreis mit Mittelpunkt (x, y) und Radius r
+func drawCircle(img *image.RGBA, x, y, r int, col color.Color) {
+	putPixel := func(xc, yc, x, y int) {
+		img.Set(xc+x, yc+y, col)
+		img.Set(xc-x, yc+y, col)
+		img.Set(xc+x, yc-y, col)
+		img.Set(xc-x, yc-y, col)
+		img.Set(xc+y, yc+x, col)
+		img.Set(xc-y, yc+x, col)
+		img.Set(xc+y, yc-x, col)
+		img.Set(xc-y, yc-x, col)
+	}
+
+	x = 0
+	y = r
+	d := 3 - 2*r
+	putPixel(x, y, x, y)
+	for y >= x {
+		x++
+		if d > 0 {
+			y--
+			d = d + 4*(x-y) + 10
+		} else {
+			d = d + 4*x + 6
+		}
+		putPixel(x, y, x, y)
 	}
 }
 
@@ -215,17 +252,7 @@ func newXY(x, y int) (int, int) {
 }
 
 func (field *Field) printField() string {
-	genClock()
-	file, err := os.Open("./clock.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	img, err := png.Decode(file)
-	if err != nil {
-		log.Fatal(os.Stderr, "%s: %v\n", "./clock.png", err)
-	}
+	img := genClock()
 
 	for y := 0; y < 128; y++ {
 		for x := 0; x < 128; x++ {
@@ -238,7 +265,7 @@ func (field *Field) printField() string {
 		}
 	}
 	c.Render()
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 100)
 	return ""
 }
 
@@ -265,7 +292,7 @@ func main() {
 	defer c.Close()
 
 	for i := 0; i != setduration; i++ {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 50)
 		field.printField()
 	}
 }

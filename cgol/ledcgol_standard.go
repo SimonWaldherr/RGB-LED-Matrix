@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"time"
-	
+
 	rgbmatrix "simonwaldherr.de/go/rpirgbled"
 )
 
@@ -94,7 +94,7 @@ func (field *Field) nextVitality(x, y int) Cell {
 
 	cell := field.getVitality(x, y)
 	if alive == 3 || (alive == 2 && cell.vit == true) {
-			return Cell{vit: true, col: color.RGBA{255, 255, 255, 255}}
+		return Cell{vit: true, col: color.RGBA{255, 255, 255, 255}}
 	}
 
 	return Cell{vit: false, col: color.RGBA{0, 0, 0, 255}}

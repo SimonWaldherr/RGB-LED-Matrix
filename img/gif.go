@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"time"
-	
+
 	rgbmatrix "simonwaldherr.de/go/rpirgbled"
 )
 
@@ -92,22 +92,20 @@ func newXY(x, y int) (int, int) {
 	return 0, 0
 }
 
-
-
 func (field *Field) printField(setfilename string) string {
 	file, err := os.Open(setfilename)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
-	
+
 	c.Clear()
-	
+
 	gif, _ := gif.DecodeAll(file)
-	
+
 	for i, srcImg := range gif.Image {
 		start := time.Now() // Start time measurement
-		
+
 		for y := 0; y < field.height; y++ {
 			for x := 0; x < field.width; x++ {
 				x1, y1 := newXY(x, y)
@@ -117,9 +115,9 @@ func (field *Field) printField(setfilename string) string {
 			}
 		}
 		c.Render()
-		
+
 		elapsed := time.Since(start) // Calculate elapsed time
-		
+
 		if i < len(gif.Delay) {
 			delay := time.Duration(gif.Delay[i]*10) * time.Millisecond
 			if delay > elapsed {
