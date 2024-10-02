@@ -279,7 +279,18 @@ func main() {
 	flag.IntVar(&outputlength, "l", 200, "frames")
 
 	flag.Parse()
-
+	
+	for {
+		matrix()
+	}
+}
+	
+func matrix() {
+	defer func() {
+		if err := recover(); err != nil {
+			matrix()
+	}
+	}()
 	config.Rows = *rows
 	config.Parallel = *parallel
 	config.ChainLength = *chain
@@ -287,11 +298,13 @@ func main() {
 
 	m, err := rgbmatrix.NewRGBLedMatrix(config)
 	fatal(err)
+	
+	defer m.Close()
 
 	c = rgbmatrix.NewCanvas(m)
 	defer c.Close()
 
-	for i := 0; i != setduration; i++ {
+	for {
 		time.Sleep(time.Millisecond * 50)
 		field.printField()
 	}

@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"image/color"
 	"image/gif"
+	"image"
+	//"image/draw"
 	"log"
 	"math/rand"
 	"os"
 	"time"
 
 	rgbmatrix "simonwaldherr.de/go/rpirgbled"
+	"golang.org/x/image/draw"
 )
 
 var (
@@ -92,32 +95,41 @@ func newXY(x, y int) (int, int) {
 	return 0, 0
 }
 
+func resizeImage(src image.Image, newWidth, newHeight int) image.Image {
+	dst := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	draw.ApproxBiLinear.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
+	return dst
+}
+
 func (field *Field) printField(setfilename string) string {
 	file, err := os.Open(setfilename)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
-
+	
 	c.Clear()
-
+	
 	gif, _ := gif.DecodeAll(file)
-
+	
 	for i, srcImg := range gif.Image {
 		start := time.Now() // Start time measurement
-
+		
+		// Skaliere das Bild auf 128x128
+		resizedImg := resizeImage(srcImg, 128, 128)
+		
 		for y := 0; y < field.height; y++ {
 			for x := 0; x < field.width; x++ {
 				x1, y1 := newXY(x, y)
-				pixel := srcImg.At(x, y)
+				pixel := resizedImg.At(x, y)
 				r, g, b, _ := pixel.RGBA()
-				c.Set(x1, y1, color.RGBA{uint8(r), uint8(g), uint8(b), 255})
+				c.Set(x1, y1, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), 255})
 			}
 		}
 		c.Render()
-
+		
 		elapsed := time.Since(start) // Calculate elapsed time
-
+		
 		if i < len(gif.Delay) {
 			delay := time.Duration(gif.Delay[i]*10) * time.Millisecond
 			if delay > elapsed {

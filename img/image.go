@@ -118,6 +118,12 @@ func newXY(x, y int) (int, int) {
 	return x1, y1
 }
 
+func resizeImage(src image.Image, newWidth, newHeight int) image.Image {
+	dst := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	draw.NearestNeighbor.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
+	return dst
+}
+
 func (field *Field) printField() string {
 	file, err := os.Open("./png.png")
 	if err != nil {
@@ -126,6 +132,9 @@ func (field *Field) printField() string {
 	defer file.Close()
 
 	img, err := png.Decode(file)
+	
+	resizedImg := resizeImage(img, 128, 128)
+	
 	if err != nil {
 		log.Fatal(os.Stderr, "%s: %v\n", "./png.png", err)
 	}
@@ -135,7 +144,7 @@ func (field *Field) printField() string {
 
 			x1, y1 := newXY(x, y)
 
-			oldPixel := img.At(x, y)
+			oldPixel := resizedImg.At(x, y)
 			r, g, b, _ := oldPixel.RGBA()
 			c.Set(x1, y1, color.RGBA{uint8(r), uint8(g), uint8(b), 255})
 		}
